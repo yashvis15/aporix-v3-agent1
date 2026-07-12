@@ -56,6 +56,8 @@ export interface OptimizeResponse {
     modelUsed: string;
     inputChars: number;
     outputChars: number;
+    rawLlmResponse: string;
+    commitHash: string;
   };
 }
 

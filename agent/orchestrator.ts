@@ -22,6 +22,8 @@ export async function runOptimizationAgent(
     modelUsed: string;
     inputChars: number;
     outputChars: number;
+    rawLlmResponse: string;
+    commitHash: string;
   };
 }> {
   const { extractedText, goal } = input;
@@ -74,6 +76,8 @@ export async function runOptimizationAgent(
     modelUsed: optimization.modelUsed,
     inputChars: extractedText.length,
     outputChars: optimization.optimizedText.length,
+    rawLlmResponse: optimization.rawLlmResponse,
+    commitHash: "49e2574",
   };
 
   return { result, debug };
