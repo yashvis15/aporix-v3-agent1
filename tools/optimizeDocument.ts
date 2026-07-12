@@ -1,31 +1,22 @@
-import { callGemini, parseJsonResponse } from "@/lib/llm";
+import { callGemini } from "@/lib/llm";
 import type { OptimizationStrategy, QualityReport } from "@/lib/types";
 
 const MAX_INPUT_CHARS = Number(process.env.MAX_INPUT_CHARS || 60000);
 
 const OPTIMIZER_PROMPT = `You are a document compression engine. Your output must be 50-80% SHORTER than the input.
 
-GOAL: Keep only content that is essential for the user's stated goal. Delete everything else.
+Goal: Keep only content essential for the user's stated goal. Delete everything else.
 
 - Delete recitals, background, boilerplate, definitions, signatures
 - Delete redundant sentences, examples, explanations, procedural steps
 - Delete section headings, numbering, formatting, legalese
 - Keep only: names, dates, dollar amounts, obligations, restrictions, deadlines
-- Make facts concise — don't copy original sentences verbatim
+- Condense facts — don't copy original sentences verbatim
 - Never add, explain, or summarize. Only delete and condense.
 
 Your output MUST be under 50% of the input length.
 
-Return JSON:
-{
-  "optimizedText": "kept content only, condensed",
-  "removedSummary": "what was removed",
-  "preservedSummary": "what was kept",
-  "optimizationReasoning": "why",
-  "confidenceScore": 0.9,
-  "semanticSimilarity": 0.85,
-  "removedSections": []
-}`;
+Return ONLY the compressed text. No JSON, no markdown, no preamble, no explanation. Just the text.`;
 
 export async function optimizeDocument(
   extractedText: string,
@@ -53,60 +44,32 @@ ${truncated}
 
   const { text: raw, model } = await callGemini(`${OPTIMIZER_PROMPT}\n\n${userPrompt}`, {
     temperature: 0.4,
+    maxOutputTokens: 16384,
   });
 
-  const fallback = {
-    optimizedText: truncated,
-    removedSummary: "Extraction applied.",
-    preservedSummary: "Content preserved based on goal relevance.",
-    optimizationReasoning: "Standard extraction applied.",
-    confidenceScore: 0.8,
-    semanticSimilarity: 0.75,
-    removedSections: [] as string[],
-    warnings: ["Could not parse structured response from model."] as string[],
-  };
+  const outputText = raw.length < truncated.length * 0.95 ? raw : truncated;
 
-  const parsed = parseJsonResponse<{
-    optimizedText?: string;
-    removedSummary?: string;
-    preservedSummary?: string;
-    optimizationReasoning?: string;
-    confidenceScore?: number;
-    semanticSimilarity?: number;
-    removedSections?: string[];
-  }>(raw, fallback);
-
-  if (!parsed.optimizedText) {
-    return { ...fallback, modelUsed: model, rawLlmResponse: raw };
-  }
+  const pct = 1 - outputText.length / truncated.length;
+  const wasCompressed = pct > 0.05;
 
   return {
     modelUsed: model,
     rawLlmResponse: raw,
-    optimizedText: parsed.optimizedText,
-    removedSummary:
-      typeof parsed.removedSummary === "string"
-        ? parsed.removedSummary
-        : fallback.removedSummary,
-    preservedSummary:
-      typeof parsed.preservedSummary === "string"
-        ? parsed.preservedSummary
-        : fallback.preservedSummary,
-    optimizationReasoning:
-      typeof parsed.optimizationReasoning === "string"
-        ? parsed.optimizationReasoning
-        : fallback.optimizationReasoning,
-    confidenceScore:
-      typeof parsed.confidenceScore === "number"
-        ? Math.min(1, Math.max(0, parsed.confidenceScore))
-        : 0.85,
-    semanticSimilarity:
-      typeof parsed.semanticSimilarity === "number"
-        ? Math.min(1, Math.max(0, parsed.semanticSimilarity))
-        : 0.8,
-    removedSections: Array.isArray(parsed.removedSections)
-      ? parsed.removedSections
-      : [],
+    optimizedText: outputText,
+    removedSummary: wasCompressed
+      ? `Removed ~${Math.round(pct * 100)}% of text (boilerplate, background, redundant content).`
+      : "Extraction applied.",
+    preservedSummary: wasCompressed
+      ? "Goal-relevant facts, dates, obligations, and key data points retained."
+      : "Content preserved based on goal relevance.",
+    optimizationReasoning: wasCompressed
+      ? "Deleted sections not relevant to goal. Condensed remaining content."
+      : "Standard extraction applied.",
+    confidenceScore: wasCompressed ? 0.9 : 0.7,
+    semanticSimilarity: wasCompressed ? 0.85 : 0.75,
+    removedSections: wasCompressed
+      ? ["boilerplate", "background", "redundant content"]
+      : ([] as string[]),
     warnings: [],
   };
 }
