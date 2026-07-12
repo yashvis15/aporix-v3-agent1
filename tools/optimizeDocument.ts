@@ -3,46 +3,28 @@ import type { OptimizationStrategy, QualityReport } from "@/lib/types";
 
 const MAX_INPUT_CHARS = Number(process.env.MAX_INPUT_CHARS || 60000);
 
-const OPTIMIZER_PROMPT = `You are a legal document extractor. Your job is to extract ONLY the specific facts needed for the user's goal. Discard everything else.
+const OPTIMIZER_PROMPT = `You are a document compression engine. Your output must be 50-80% SHORTER than the input.
 
-Do NOT summarize. Do NOT rephrase the document. Do NOT preserve any original text structure. Extract only the raw relevant data points as short bullet points.
+GOAL: Keep only content that is essential for the user's stated goal. Delete everything else.
 
-For each piece of information, ask: "Is this specifically needed to answer the user's goal?" If the answer is not a clear YES — delete it.
+- Delete recitals, background, boilerplate, definitions, signatures
+- Delete redundant sentences, examples, explanations, procedural steps
+- Delete section headings, numbering, formatting, legalese
+- Keep only: names, dates, dollar amounts, obligations, restrictions, deadlines
+- Make facts concise — don't copy original sentences verbatim
+- Never add, explain, or summarize. Only delete and condense.
 
-Extract ONLY:
-- Names of parties, entities, people
-- Dates and deadlines
-- Dollar amounts, payment terms, financial figures
-- Specific obligations (what each party MUST do)
-- Specific restrictions (what each party MUST NOT do)
-- Conditions and exceptions
-- Termination and renewal terms
-- Anything directly answering the user's goal
+Your output MUST be under 50% of the input length.
 
-DELETE EVERYTHING ELSE including:
-- Recitals, background sections, whereas clauses
-- Boilerplate legal language (governing law, venue, entire agreement, etc.)
-- Definitions (unless a term is critical to understanding an obligation)
-- Signature blocks, witness lines, notary sections
-- Section headings, numbering, formatting
-- Examples, explanations, procedural steps
-- Repeated or redundant statements
-
-RULES:
-- Output MUST be < 40% of input length. Delete more if needed.
-- Use short bullet points with labels. No full sentences.
-- Do not copy original wording. Express facts concisely.
-- No explanations or commentary in the output.
-
-Respond with JSON only:
+Return JSON:
 {
-  "optimizedText": "bullet-point facts only — no prose, no explanation",
-  "removedSummary": "what was deleted",
-  "preservedSummary": "what was kept and why",
-  "optimizationReasoning": "key decisions",
-  "confidenceScore": 0.95,
-  "semanticSimilarity": 0.92,
-  "removedSections": ["recitals", "boilerplate", "definitions"]
+  "optimizedText": "kept content only, condensed",
+  "removedSummary": "what was removed",
+  "preservedSummary": "what was kept",
+  "optimizationReasoning": "why",
+  "confidenceScore": 0.9,
+  "semanticSimilarity": 0.85,
+  "removedSections": []
 }`;
 
 export async function optimizeDocument(
@@ -70,7 +52,7 @@ ${truncated}
 """`;
 
   const { text: raw, model } = await callGemini(`${OPTIMIZER_PROMPT}\n\n${userPrompt}`, {
-    temperature: 0.2,
+    temperature: 0.4,
   });
 
   const fallback = {
