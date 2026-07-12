@@ -17,7 +17,7 @@ Rules:
 - removeRules: 2-4 specific things to cut (e.g. "Remove boilerplate disclaimers repeated on every page")
 - focusArea: one sentence on what matters most
 - customInstructions: 2-3 sentences with detailed optimization guidance
-- compressionTarget: "aggressive" for marketing/sales content, "minimal" for legal/technical docs where precision matters, "moderate" otherwise`;
+- compressionTarget: aim for "aggressive" (50-80% reduction). Use "moderate" only if the document category or goal requires high precision (e.g. legal contracts, medical data). Never use "minimal".`;
 
 export async function createStrategy(
   analysis: DocumentAnalysis,
@@ -45,8 +45,8 @@ DOCUMENT ANALYSIS:
       "Remove content unrelated to the goal",
     ],
     focusArea: `Content relevant to: ${goal}`,
-    customInstructions: "Optimize the document context to serve the stated goal. Retain relevant precision, remove distractions.",
-    compressionTarget: "moderate",
+    customInstructions: "Aggressively compress the document into the smallest possible context that still allows another LLM to answer the user's goal. Convert verbose language into concise factual statements. Merge repeated concepts. Remove all boilerplate, procedural text, formatting artifacts, and content not directly serving the goal.",
+    compressionTarget: "aggressive",
   };
 
   return parseJsonResponse(raw, fallback);

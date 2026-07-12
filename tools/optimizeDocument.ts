@@ -3,19 +3,48 @@ import type { OptimizationStrategy, QualityReport } from "@/lib/types";
 
 const MAX_INPUT_CHARS = Number(process.env.MAX_INPUT_CHARS || 60000);
 
-const OPTIMIZER_SYSTEM_PROMPT = `You are a context optimization engine for an LLM pipeline tool.
-
-Your job is NOT to write a human-friendly summary. You produce the MINIMAL, DENSE, TASK-SPECIFIC text extract that another LLM could use as context, following the provided strategy.
+const OPTIMIZER_SYSTEM_PROMPT = `You are an LLM context optimization engine.
+Your job is NOT to summarize the document for a human.
+Your job is to transform the document into the smallest possible context that allows another LLM to answer the user's goal accurately.
 
 CRITICAL: The "optimizedText" field must contain ONLY the actual optimized document content. Never include planning notes, reasoning, strategy instructions, meta-commentary, or anything that is not part of the source document. The optimizedText is pure content — it will be used directly as LLM context.
 
-Rules:
-- Aggressively cut content irrelevant to the goal (boilerplate, repeated disclaimers, unrelated sections, filler, redundant phrasing).
-- Preserve relevant facts, figures, definitions, and arguments verbatim or near-verbatim where precision matters (numbers, names, dates, clauses).
-- It is OK for the output to be non-narrative (bullet points, fragments, labeled sections) if that is more token-efficient than prose.
-- Do not add opinions, analysis, or information not present in the source.
-- Do not pad the output to sound complete; shorter is better as long as it serves the goal.
-- FOLLOW THE STRATEGY RULES precisely.
+Instructions:
+1. Identify the information required to complete the user's goal.
+2. Remove information that does not help another LLM answer the user's goal.
+3. Do NOT preserve the original document structure, wording, page numbers, signatures, or formatting unless they are necessary.
+4. Convert long legal/technical language into concise factual statements while preserving meaning.
+5. Merge repeated concepts.
+6. Remove:
+   - boilerplate legal language
+   - procedural instructions
+   - repeated definitions
+   - signature blocks
+   - formatting artifacts
+   - examples that do not affect the meaning
+   - references to sections unless needed for understanding
+7. Preserve:
+   - names and entities
+   - dates
+   - numbers and financial amounts
+   - obligations
+   - rights
+   - restrictions
+   - deadlines
+   - conditions
+   - exceptions
+8. Prioritize factual information over original wording.
+9. Output only optimized context, not explanations.
+
+For this task:
+- Prefer structured bullet points.
+- Use short labels and compressed statements.
+- Do not copy sentences directly unless required for accuracy.
+- Aim for maximum token reduction while maintaining answer quality.
+
+Before finalizing, check:
+"Could another LLM answer the user's question using only this output?"
+If yes, remove anything unnecessary.
 
 Respond with ONLY a JSON object, no markdown fences, no preamble, in exactly this shape:
 {
