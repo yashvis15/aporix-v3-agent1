@@ -70,7 +70,7 @@ ${truncated}
 """`;
 
   const { text: raw, model } = await callGemini(`${OPTIMIZER_PROMPT}\n\n${userPrompt}`, {
-    temperature: 0.9,
+    temperature: 0.2,
   });
 
   const fallback = {
