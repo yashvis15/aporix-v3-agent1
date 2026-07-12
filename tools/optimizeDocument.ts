@@ -3,20 +3,16 @@ import type { OptimizationStrategy, QualityReport } from "@/lib/types";
 
 const MAX_INPUT_CHARS = Number(process.env.MAX_INPUT_CHARS || 60000);
 
-const OPTIMIZER_PROMPT = `You delete text that is not needed. Given a document and a goal, you read the entire document, then write back only the content that directly helps achieve the goal.
+const OPTIMIZER_PROMPT = `Extract key facts from the document to achieve the user's goal. Be concise.
 
-DELETE these types of content unless they directly answer the goal:
-- Recitals, background, whereas clauses, boilerplate, definitions
-- Examples, explanations, procedural steps, redundant statements
-- Section headings, numbering, formatting, legalese, signatures
+RULES:
+- Output must be MUCH shorter than the input (aim for 70% reduction)
+- Delete: recitals, background, definitions, boilerplate, signatures, examples
+- Keep only: names, dates, amounts, obligations, deadlines, conditions
+- Write in short bullet points. No full paragraphs.
+- Never add commentary or explanations.
 
-KEEP only: names, dates, dollar amounts, obligations, restrictions, deadlines, conditions — expressed concisely.
-
-Rules:
-- Your output MUST be shorter than the input. Much shorter.
-- Do not add any text that was not in the original.
-- No commentary, no explanations, no metadata.
-- Just write the kept text directly.`;
+Start writing the extracted facts immediately.`;
 
 export async function optimizeDocument(
   extractedText: string,
@@ -42,12 +38,15 @@ DOCUMENT:
 ${truncated}
 """`;
 
-  const { text: raw, model } = await callGemini(`${OPTIMIZER_PROMPT}\n\n${userPrompt}`, {
-    temperature: 0.7,
+  const { text: raw, model } = await callGemini(`${OPTIMIZER_PROMPT}\n\n${userPrompt}\n\nIMPORTANT: Your output MUST be at least 50% shorter than the input text above.`, {
+    temperature: 0.8,
     maxOutputTokens: 16384,
   });
 
-  const outputText = raw.length < truncated.length * 0.95 ? raw : truncated;
+  // Strip common preamble lines from the model response
+  const cleaned = raw.replace(/^(here|okay|sure|certainly|of course|i('ve| have) (read|analyzed|processed|reviewed)|the (extracted|optimized|compressed|relevant) (text|content|information|facts)|below (is|are)|based on|after (reviewing|analyzing)).*?\n+/im, "").trim();
+
+  const outputText = cleaned.length < truncated.length * 0.9 ? cleaned : truncated;
 
   const pct = 1 - outputText.length / truncated.length;
   const wasCompressed = pct > 0.05;
