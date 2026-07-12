@@ -1,63 +1,46 @@
 import { callGemini, parseJsonResponse } from "@/lib/llm";
+import { estimateTokens } from "@/lib/tokenCount";
 import type { OptimizationStrategy, QualityReport } from "@/lib/types";
 
 const MAX_INPUT_CHARS = Number(process.env.MAX_INPUT_CHARS || 60000);
 
 const OPTIMIZER_SYSTEM_PROMPT = `You are an LLM context optimization engine.
-Your job is NOT to summarize the document for a human.
-Your job is to transform the document into the smallest possible context that allows another LLM to answer the user's goal accurately.
-Your target is to reduce the token count by 50-80% compared to the original.
 
-CRITICAL: The "optimizedText" field must contain ONLY the actual optimized document content. Never include planning notes, reasoning, strategy instructions, meta-commentary, or anything that is not part of the source document. The optimizedText is pure content — it will be used directly as LLM context.
+Your job is NOT to summarize for a human. Transform the document into the smallest possible factual context that another LLM can use to answer the goal.
 
-FOLLOW THE PROVIDED STRATEGY — it specifies what to preserve, what to remove, and the compression target.
+RULES:
+- Output ONLY compressed facts. No explanations, no meta-commentary, no reasoning.
+- Prefer bullet points, short labels, compressed statements.
+- Merge repeated concepts. State each fact once.
+- Convert verbose prose into concise factual statements.
+- Remove ALL: boilerplate, formatting artifacts, signature blocks, procedural text, repeated definitions, examples not needed for meaning, section references unless essential.
+- Preserve: names, dates, numbers, amounts, obligations, rights, restrictions, deadlines, conditions, exceptions.
+- Prioritize factual precision over original wording.
+- Do not preserve original document structure or formatting.
 
-Instructions:
-1. Identify the information required to complete the user's goal.
-2. Aggressively remove information that does not help another LLM answer the user's goal.
-3. Do NOT preserve the original document structure, wording, page numbers, signatures, or formatting unless they are necessary.
-4. Convert long legal/technical language into concise factual statements while preserving meaning.
-5. Merge repeated concepts — state each fact once.
-6. Remove:
-   - boilerplate legal language
-   - procedural instructions
-   - repeated definitions
-   - signature blocks
-   - formatting artifacts
-   - examples that do not affect the meaning
-   - references to sections unless needed for understanding
-7. Preserve:
-   - names and entities
-   - dates
-   - numbers and financial amounts
-   - obligations
-   - rights
-   - restrictions
-   - deadlines
-   - conditions
-   - exceptions
-8. Prioritize factual information over original wording.
-9. Output only optimized context, not explanations.
+Before finalizing, verify:
+"Could another LLM answer the goal using ONLY this output?"
+If yes, cut anything unnecessary.
 
-For this task:
-- Prefer structured bullet points.
-- Use short labels and compressed statements.
-- Do not copy sentences directly unless required for accuracy.
-- Aim for maximum token reduction while maintaining answer quality.
+EXAMPLE of good compression (this is a SEPARATE document, not related to the user's input):
 
-Before finalizing, check:
-"Could another LLM answer the user's question using only this output?"
-If yes, remove anything unnecessary.
+Original (87 tokens):
+"This Employment Agreement (the 'Agreement') is entered into as of January 15, 2024, by and between Acme Corporation, a Delaware corporation with its principal place of business at 123 Main Street, Wilmington, DE 19801 (the 'Company'), and John Smith, an individual residing at 456 Oak Avenue, Springfield, IL 62701 (the 'Employee')."
 
-Respond with ONLY a JSON object, no markdown fences, no preamble, in exactly this shape:
+Optimized (18 tokens, 79% reduction):
+- Party: Acme Corp (Delaware)
+- Employee: John Smith (Springfield, IL)
+- Agreement Date: Jan 15, 2024
+
+Respond with ONLY a JSON object, no markdown fences, no preamble:
 {
-  "optimizedText": "the compressed, goal-optimized context — this field contains ONLY document content, no reasoning or planning",
-  "removedSummary": "1-3 sentences describing what kinds of content were removed and why",
-  "preservedSummary": "1-2 sentences describing what content was preserved and why it is relevant",
-  "optimizationReasoning": "2-3 sentences explaining the key decisions made during optimization",
+  "optimizedText": "the compressed content only",
+  "removedSummary": "what was removed and why",
+  "preservedSummary": "what was preserved and why",
+  "optimizationReasoning": "key decisions made",
   "confidenceScore": 0.95,
   "semanticSimilarity": 0.92,
-  "removedSections": ["section heading or topic briefly", "another removed section"]
+  "removedSections": ["section briefly", "another"]
 }`;
 
 export async function optimizeDocument(
@@ -71,26 +54,30 @@ export async function optimizeDocument(
         "\n\n[...document truncated for input limit...]"
       : extractedText;
 
-  const strategyBlock = `OPTIMIZATION STRATEGY:
+  const originalTokens = estimateTokens(truncated);
+  const targetMinTokens = Math.round(originalTokens * 0.2);
+  const targetMaxTokens = Math.round(originalTokens * 0.5);
+
+  const strategyBlock = `STRATEGY:
 - Compression Target: ${strategy.compressionTarget}
-- Focus Area: ${strategy.focusArea}
-- Preserve Rules: ${strategy.preserveRules.map((r) => `"${r}"`).join(", ")}
-- Remove Rules: ${strategy.removeRules.map((r) => `"${r}"`).join(", ")}
-- Custom Instructions: ${strategy.customInstructions}`;
+- Focus: ${strategy.focusArea}
+- Preserve: ${strategy.preserveRules.join("; ")}
+- Remove: ${strategy.removeRules.join("; ")}`;
 
   const userPrompt = `${strategyBlock}
 
 USER GOAL: ${goal}
 
+ORIGINAL TOKEN COUNT: ~${originalTokens} tokens
+TARGET OUTPUT: ${targetMinTokens}-${targetMaxTokens} tokens (${Math.round((1 - targetMaxTokens / originalTokens) * 100)}-${Math.round((1 - targetMinTokens / originalTokens) * 100)}% reduction)
+
 DOCUMENT TEXT:
 """
 ${truncated}
-"""
-
-Produce the JSON object described in the system prompt now.`;
+"""`;
 
   const raw = await callGemini(`${OPTIMIZER_SYSTEM_PROMPT}\n\n${userPrompt}`, {
-    temperature: 0.5,
+    temperature: 0.7,
   });
 
   const fallback = {

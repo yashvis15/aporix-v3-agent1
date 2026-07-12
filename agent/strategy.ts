@@ -1,53 +1,25 @@
-import { callGemini, parseJsonResponse } from "@/lib/llm";
 import type { DocumentAnalysis, OptimizationStrategy } from "@/lib/types";
 
-const STRATEGY_PROMPT = `You are an optimization strategist. Given a document analysis and a user goal, create a compression strategy.
-
-Return ONLY valid JSON (no markdown, no explanation) in exactly this shape:
-{
-  "preserveRules": ["rule1", "rule2", ...],
-  "removeRules": ["rule1", "rule2", ...],
-  "focusArea": "short description of what to focus on",
-  "customInstructions": "detailed instructions for the optimizer",
-  "compressionTarget": "aggressive|moderate|minimal"
-}
-
-Rules:
-- preserveRules: 2-4 specific things to keep verbatim (e.g. "Preserve all defined terms and their definitions")
-- removeRules: 2-4 specific things to cut (e.g. "Remove boilerplate disclaimers repeated on every page")
-- focusArea: one sentence on what matters most
-- customInstructions: 2-3 sentences with detailed optimization guidance
-- compressionTarget: aim for "aggressive" (50-80% reduction). Use "moderate" only if the document category or goal requires high precision (e.g. legal contracts, medical data). Never use "minimal".`;
-
-export async function createStrategy(
+export function createStrategy(
   analysis: DocumentAnalysis,
   goal: string
-): Promise<OptimizationStrategy> {
-  const prompt = `${STRATEGY_PROMPT}
+): OptimizationStrategy {
+  const isPrecisionDoc = analysis.category === "legal";
+  const compressionTarget = isPrecisionDoc ? "moderate" : "aggressive";
 
-USER GOAL: ${goal}
-
-DOCUMENT ANALYSIS:
-- Category: ${analysis.category}
-- Estimated Pages: ${analysis.estimatedPages}
-- Key Topics: ${analysis.keyTopics.join(", ")}
-- Structural Elements: ${analysis.structuralElements.join(", ")}
-- Est. Reading Time: ${analysis.estimatedReadingTimeMinutes} min`;
-
-  const raw = await callGemini(prompt);
-  const fallback: OptimizationStrategy = {
+  return {
     preserveRules: [
-      "Preserve all facts, figures, names, and dates",
-      "Keep content directly relevant to the goal",
+      "Preserve all names, dates, numbers, financial amounts, and specific facts",
+      "Keep obligations, rights, restrictions, deadlines, conditions, and exceptions",
+      `Keep content directly relevant to: ${goal}`,
     ],
     removeRules: [
-      "Remove filler, boilerplate, and redundant phrasing",
-      "Remove content unrelated to the goal",
+      "Remove boilerplate, formatting artifacts, signature blocks, procedural text",
+      "Remove examples, repeated definitions, and section references unless essential",
+      "Remove content not directly serving the user's goal",
     ],
     focusArea: `Content relevant to: ${goal}`,
-    customInstructions: "Aggressively compress the document into the smallest possible context that still allows another LLM to answer the user's goal. Convert verbose language into concise factual statements. Merge repeated concepts. Remove all boilerplate, procedural text, formatting artifacts, and content not directly serving the goal.",
-    compressionTarget: "aggressive",
+    customInstructions: `Aggressively compress into the smallest possible context that still allows another LLM to answer the goal. Merge repeated concepts. Convert verbose prose into concise bullet-point facts.`,
+    compressionTarget,
   };
-
-  return parseJsonResponse(raw, fallback);
 }
