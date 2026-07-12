@@ -53,6 +53,7 @@ export interface OptimizeResponse {
     qualityReport: QualityReport;
     agentSteps: string[];
     agentVersion: string;
+    modelUsed: string;
     inputChars: number;
     outputChars: number;
   };

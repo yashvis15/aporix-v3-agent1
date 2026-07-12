@@ -19,6 +19,7 @@ export async function runOptimizationAgent(
     qualityReport: import("@/lib/types").QualityReport;
     agentSteps: string[];
     agentVersion: string;
+    modelUsed: string;
     inputChars: number;
     outputChars: number;
   };
@@ -70,6 +71,7 @@ export async function runOptimizationAgent(
     qualityReport: quality,
     agentSteps: steps,
     agentVersion: "3.0.0",
+    modelUsed: optimization.modelUsed,
     inputChars: extractedText.length,
     outputChars: optimization.optimizedText.length,
   };

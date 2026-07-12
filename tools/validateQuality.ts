@@ -39,7 +39,7 @@ OPTIMIZED TEXT:
 ${optimizedText.slice(0, 3000)}
 """`;
 
-  const raw = await callGemini(prompt);
+  const { text: raw } = await callGemini(prompt);
   const fallback: QualityReport = {
     confidenceScore: 0.85,
     semanticSimilarity: 0.8,

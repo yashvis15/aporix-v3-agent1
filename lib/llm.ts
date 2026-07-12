@@ -20,11 +20,11 @@ export async function discoverModels(): Promise<string[]> {
   if (!data?.models) return [];
 
   const preferred = [
+    "gemini-2.5-flash",
+    "gemini-3.5-flash",
     "gemini-2.0-flash",
-    "gemini-2.0-flash-lite",
+    "gemini-2.5-pro",
     "gemini-1.5-flash",
-    "gemini-1.5-pro",
-    "gemini-2.5-pro-preview",
   ];
 
   const available: string[] = [];
@@ -49,10 +49,15 @@ export interface GeminiConfig {
   maxOutputTokens?: number;
 }
 
+export interface GeminiResult {
+  text: string;
+  model: string;
+}
+
 export async function callGemini(
   prompt: string,
   config?: GeminiConfig
-): Promise<string> {
+): Promise<GeminiResult> {
   const apiKey = getGeminiApiKey();
 
   let modelsToTry: string[] = [];
@@ -91,7 +96,7 @@ export async function callGemini(
         .join("")
         .trim();
 
-      if (text) return text;
+      if (text) return { text, model };
     }
 
     const data = await response.json().catch(() => null);

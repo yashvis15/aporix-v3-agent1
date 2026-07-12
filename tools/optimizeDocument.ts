@@ -41,7 +41,7 @@ export async function optimizeDocument(
   extractedText: string,
   goal: string,
   _strategy: OptimizationStrategy
-): Promise<QualityReport & { optimizedText: string; removedSummary: string }> {
+): Promise<QualityReport & { optimizedText: string; removedSummary: string; modelUsed: string }> {
   const truncated =
     extractedText.length > MAX_INPUT_CHARS
       ? extractedText.slice(0, MAX_INPUT_CHARS) +
@@ -61,7 +61,7 @@ DOCUMENT TEXT:
 ${truncated}
 """`;
 
-  const raw = await callGemini(`${OPTIMIZER_PROMPT}\n\n${userPrompt}`, {
+  const { text: raw, model } = await callGemini(`${OPTIMIZER_PROMPT}\n\n${userPrompt}`, {
     temperature: 0.7,
   });
 
@@ -86,9 +86,10 @@ ${truncated}
     removedSections?: string[];
   }>(raw, fallback);
 
-  if (!parsed.optimizedText) return fallback;
+  if (!parsed.optimizedText) return { ...fallback, modelUsed: model };
 
   return {
+    modelUsed: model,
     optimizedText: parsed.optimizedText,
     removedSummary:
       typeof parsed.removedSummary === "string"
