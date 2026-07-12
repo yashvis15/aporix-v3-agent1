@@ -4,49 +4,43 @@ import type { OptimizationStrategy, QualityReport } from "@/lib/types";
 
 const MAX_INPUT_CHARS = Number(process.env.MAX_INPUT_CHARS || 60000);
 
-const OPTIMIZER_SYSTEM_PROMPT = `You are an LLM context optimization engine.
-
-Your job is NOT to summarize for a human. Transform the document into the smallest possible factual context that another LLM can use to answer the goal.
+const OPTIMIZER_PROMPT = `You are an LLM context extractor. Your job is to DELETE everything from the document that is NOT needed to answer the user's goal. Keep ONLY the essential facts.
 
 RULES:
-- Output ONLY compressed facts. No explanations, no meta-commentary, no reasoning.
-- Prefer bullet points, short labels, compressed statements.
-- Merge repeated concepts. State each fact once.
-- Convert verbose prose into concise factual statements.
-- Remove ALL: boilerplate, formatting artifacts, signature blocks, procedural text, repeated definitions, examples not needed for meaning, section references unless essential.
-- Preserve: names, dates, numbers, amounts, obligations, rights, restrictions, deadlines, conditions, exceptions.
-- Prioritize factual precision over original wording.
-- Do not preserve original document structure or formatting.
+- Answer this question for every sentence: "Is this needed to answer the user's goal?" If NO → DELETE it.
+- Convert remaining content into short bullet-point facts.
+- DELETE: boilerplate, recitals, signatures, formatting, page numbers, headers/footers, procedural text, examples, definitions (unless needed for understanding), section references, repeated concepts.
+- KEEP only: names, dates, numbers, amounts, obligations, rights, restrictions, deadlines, conditions, exceptions — but ONLY if they relate to the goal.
+- Do NOT preserve original wording or sentence structure. Rewrite as concise facts.
+- Do NOT add any explanation, reasoning, or meta-commentary.
 
-Before finalizing, verify:
-"Could another LLM answer the goal using ONLY this output?"
-If yes, cut anything unnecessary.
+OUTPUT RULES:
+- The "optimizedText" must be SHORTER than the input document. Much shorter.
+- If your output is similar in length to the input, you did it wrong — go back and delete more.
+- Target: remove at least 60% of the content.
 
-EXAMPLE of good compression (this is a SEPARATE document, not related to the user's input):
-
-Original (87 tokens):
-"This Employment Agreement (the 'Agreement') is entered into as of January 15, 2024, by and between Acme Corporation, a Delaware corporation with its principal place of business at 123 Main Street, Wilmington, DE 19801 (the 'Company'), and John Smith, an individual residing at 456 Oak Avenue, Springfield, IL 62701 (the 'Employee')."
-
-Optimized (18 tokens, 79% reduction):
-- Party: Acme Corp (Delaware)
+EXAMPLE:
+Input: "This Employment Agreement (the 'Agreement') is entered into as of January 15, 2024, by and between Acme Corporation, a Delaware corporation with its principal place of business at 123 Main Street, Wilmington, DE 19801 (the 'Company'), and John Smith, an individual residing at 456 Oak Avenue, Springfield, IL 62701 (the 'Employee')."
+Output:
+- Party: Acme Corp (DE)
 - Employee: John Smith (Springfield, IL)
-- Agreement Date: Jan 15, 2024
+- Date: Jan 15, 2024
 
-Respond with ONLY a JSON object, no markdown fences, no preamble:
+Respond with ONLY JSON, no markdown fences:
 {
-  "optimizedText": "the compressed content only",
-  "removedSummary": "what was removed and why",
-  "preservedSummary": "what was preserved and why",
-  "optimizationReasoning": "key decisions made",
+  "optimizedText": "compressed content ONLY — no reasoning",
+  "removedSummary": "what was deleted and why",
+  "preservedSummary": "what was kept and why",
+  "optimizationReasoning": "brief key decisions",
   "confidenceScore": 0.95,
   "semanticSimilarity": 0.92,
-  "removedSections": ["section briefly", "another"]
+  "removedSections": ["section", "another"]
 }`;
 
 export async function optimizeDocument(
   extractedText: string,
   goal: string,
-  strategy: OptimizationStrategy
+  _strategy: OptimizationStrategy
 ): Promise<QualityReport & { optimizedText: string; removedSummary: string }> {
   const truncated =
     extractedText.length > MAX_INPUT_CHARS
@@ -54,37 +48,28 @@ export async function optimizeDocument(
         "\n\n[...document truncated for input limit...]"
       : extractedText;
 
-  const originalTokens = estimateTokens(truncated);
-  const targetMinTokens = Math.round(originalTokens * 0.2);
-  const targetMaxTokens = Math.round(originalTokens * 0.5);
+  const inputChars = truncated.length;
+  const targetMaxChars = Math.round(inputChars * 0.4);
 
-  const strategyBlock = `STRATEGY:
-- Compression Target: ${strategy.compressionTarget}
-- Focus: ${strategy.focusArea}
-- Preserve: ${strategy.preserveRules.join("; ")}
-- Remove: ${strategy.removeRules.join("; ")}`;
+  const userPrompt = `USER GOAL: ${goal}
 
-  const userPrompt = `${strategyBlock}
-
-USER GOAL: ${goal}
-
-ORIGINAL TOKEN COUNT: ~${originalTokens} tokens
-TARGET OUTPUT: ${targetMinTokens}-${targetMaxTokens} tokens (${Math.round((1 - targetMaxTokens / originalTokens) * 100)}-${Math.round((1 - targetMinTokens / originalTokens) * 100)}% reduction)
+INPUT CHARACTER COUNT: ~${inputChars}
+YOUR OUTPUT MUST BE UNDER ${targetMaxChars} CHARACTERS.
 
 DOCUMENT TEXT:
 """
 ${truncated}
 """`;
 
-  const raw = await callGemini(`${OPTIMIZER_SYSTEM_PROMPT}\n\n${userPrompt}`, {
+  const raw = await callGemini(`${OPTIMIZER_PROMPT}\n\n${userPrompt}`, {
     temperature: 0.7,
   });
 
   const fallback = {
     optimizedText: truncated,
-    removedSummary: "Optimization applied following the strategy.",
+    removedSummary: "Optimization applied.",
     preservedSummary: "Content preserved based on goal relevance.",
-    optimizationReasoning: "Strategy-driven optimization applied.",
+    optimizationReasoning: "Standard optimization applied.",
     confidenceScore: 0.8,
     semanticSimilarity: 0.75,
     removedSections: [] as string[],
