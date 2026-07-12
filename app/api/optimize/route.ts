@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { result } = await runOptimizationAgent({
+    const { result, debug } = await runOptimizationAgent({
       extractedText,
       goal: goal.trim(),
     });
@@ -92,6 +92,7 @@ export async function POST(req: NextRequest) {
         fileSizeBytes: file.size,
         fileType,
       },
+      debug,
     };
 
     return NextResponse.json(payload, { status: 200 });

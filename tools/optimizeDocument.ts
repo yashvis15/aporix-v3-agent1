@@ -7,6 +7,8 @@ const OPTIMIZER_SYSTEM_PROMPT = `You are a context optimization engine for an LL
 
 Your job is NOT to write a human-friendly summary. You produce the MINIMAL, DENSE, TASK-SPECIFIC text extract that another LLM could use as context, following the provided strategy.
 
+CRITICAL: The "optimizedText" field must contain ONLY the actual optimized document content. Never include planning notes, reasoning, strategy instructions, meta-commentary, or anything that is not part of the source document. The optimizedText is pure content — it will be used directly as LLM context.
+
 Rules:
 - Aggressively cut content irrelevant to the goal (boilerplate, repeated disclaimers, unrelated sections, filler, redundant phrasing).
 - Preserve relevant facts, figures, definitions, and arguments verbatim or near-verbatim where precision matters (numbers, names, dates, clauses).
@@ -17,7 +19,7 @@ Rules:
 
 Respond with ONLY a JSON object, no markdown fences, no preamble, in exactly this shape:
 {
-  "optimizedText": "the compressed, goal-optimized context",
+  "optimizedText": "the compressed, goal-optimized context — this field contains ONLY document content, no reasoning or planning",
   "removedSummary": "1-3 sentences describing what kinds of content were removed and why",
   "preservedSummary": "1-2 sentences describing what content was preserved and why it is relevant",
   "optimizationReasoning": "2-3 sentences explaining the key decisions made during optimization",

@@ -47,6 +47,13 @@ export interface OptimizeResponse {
   latencyEstimate: LatencyEstimate;
   trustLayer: TrustLayer;
   meta: OptimizeRequestMeta;
+  debug?: {
+    analysis: DocumentAnalysis;
+    strategy: OptimizationStrategy;
+    qualityReport: QualityReport;
+    agentSteps: string[];
+    agentVersion: string;
+  };
 }
 
 export interface OptimizeErrorResponse {

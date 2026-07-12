@@ -18,7 +18,16 @@ export interface OrchestratorMeta {
 
 export async function runOptimizationAgent(
   input: OrchestratorInput
-): Promise<{ result: AgentResult; meta: OrchestratorMeta }> {
+): Promise<{
+  result: AgentResult;
+  debug: {
+    analysis: import("@/lib/types").DocumentAnalysis;
+    strategy: import("@/lib/types").OptimizationStrategy;
+    qualityReport: import("@/lib/types").QualityReport;
+    agentSteps: string[];
+    agentVersion: string;
+  };
+}> {
   const { extractedText, goal } = input;
   const steps: string[] = [];
 
@@ -33,6 +42,8 @@ export async function runOptimizationAgent(
   // Step 3: Run the optimizer with the strategy
   steps.push("optimizeDocument");
   const optimization = await optimizeDocument(extractedText, goal, strategy);
+  // Safety strip: remove any leaked strategy/reasoning from optimized output
+  optimization.optimizedText = stripLeakedContent(optimization.optimizedText);
 
   // Step 4: Validate quality
   steps.push("validateQuality");
@@ -70,11 +81,27 @@ export async function runOptimizationAgent(
     latencyEstimate,
   };
 
-  const meta: OrchestratorMeta = {
-    modelUsed: "gemini (auto-discovered)",
+  const debug = {
+    analysis,
+    strategy,
+    qualityReport: quality,
     agentSteps: steps,
     agentVersion: "3.0.0",
   };
 
-  return { result, meta };
+  return { result, debug };
+}
+
+function stripLeakedContent(text: string): string {
+  const leakPatterns = [
+    /^#+\s*(Strategy|Planning|Reasoning|Analysis|Optimization|Instructions|Notes)\b.*?\n{2,}/gim,
+    /\b(?:I've applied|The strategy|Per the strategy|Following the strategy|Based on my analysis|My reasoning|I considered)\b[\s\S]*?(?=\n\n|\Z)/gi,
+    /\b(?:OPTIMIZATION STRATEGY|USER GOAL|PRESERVE RULES|REMOVE RULES|COMPRESSION TARGET|FOCUS AREA|CUSTOM INSTRUCTIONS)\b.*?(\n|$)/gi,
+  ];
+
+  let cleaned = text;
+  for (const pattern of leakPatterns) {
+    cleaned = cleaned.replace(pattern, "").trim();
+  }
+  return cleaned;
 }
