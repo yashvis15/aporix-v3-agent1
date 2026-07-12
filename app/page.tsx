@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 import type {
   OptimizeErrorResponse,
   OptimizeResponse,
@@ -70,6 +70,7 @@ export default function HomePage() {
       }
 
       setResult(data);
+      console.log("[Aporix Debug]", JSON.stringify(data.debug, null, 2));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Network error.");
     } finally {
@@ -318,7 +319,7 @@ export default function HomePage() {
           {result && (
             <section>
               {/* Quick stats bar */}
-              <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-5">
                 <StatCard
                   label="Tokens saved"
                   value={`${result.tokenStats.percentSaved}%`}
@@ -344,6 +345,11 @@ export default function HomePage() {
                       ? `${Math.round(result.trustLayer.semanticSimilarity * 100)}% semantic similarity`
                       : "High accuracy"
                   }
+                />
+                <StatCard
+                  label="Model / Debug"
+                  value={`${result.debug?.modelUsed ?? "?"}`}
+                  sub={`${result.debug?.inputChars?.toLocaleString() ?? "?"}→${result.debug?.outputChars?.toLocaleString() ?? "?"} chars · ${result.debug?.commitHash?.slice(0,7) ?? "?"}`}
                 />
               </div>
 
