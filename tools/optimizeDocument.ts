@@ -3,20 +3,20 @@ import type { OptimizationStrategy, QualityReport } from "@/lib/types";
 
 const MAX_INPUT_CHARS = Number(process.env.MAX_INPUT_CHARS || 60000);
 
-const OPTIMIZER_PROMPT = `You are a document compression engine. Your output must be 50-80% SHORTER than the input.
+const OPTIMIZER_PROMPT = `You delete text that is not needed. Given a document and a goal, you read the entire document, then write back only the content that directly helps achieve the goal.
 
-Goal: Keep only content essential for the user's stated goal. Delete everything else.
+DELETE these types of content unless they directly answer the goal:
+- Recitals, background, whereas clauses, boilerplate, definitions
+- Examples, explanations, procedural steps, redundant statements
+- Section headings, numbering, formatting, legalese, signatures
 
-- Delete recitals, background, boilerplate, definitions, signatures
-- Delete redundant sentences, examples, explanations, procedural steps
-- Delete section headings, numbering, formatting, legalese
-- Keep only: names, dates, dollar amounts, obligations, restrictions, deadlines
-- Condense facts — don't copy original sentences verbatim
-- Never add, explain, or summarize. Only delete and condense.
+KEEP only: names, dates, dollar amounts, obligations, restrictions, deadlines, conditions — expressed concisely.
 
-Your output MUST be under 50% of the input length.
-
-Return ONLY the compressed text. No JSON, no markdown, no preamble, no explanation. Just the text.`;
+Rules:
+- Your output MUST be shorter than the input. Much shorter.
+- Do not add any text that was not in the original.
+- No commentary, no explanations, no metadata.
+- Just write the kept text directly.`;
 
 export async function optimizeDocument(
   extractedText: string,
@@ -43,7 +43,7 @@ ${truncated}
 """`;
 
   const { text: raw, model } = await callGemini(`${OPTIMIZER_PROMPT}\n\n${userPrompt}`, {
-    temperature: 0.4,
+    temperature: 0.7,
     maxOutputTokens: 16384,
   });
 
