@@ -6,15 +6,18 @@ const MAX_INPUT_CHARS = Number(process.env.MAX_INPUT_CHARS || 60000);
 const OPTIMIZER_SYSTEM_PROMPT = `You are an LLM context optimization engine.
 Your job is NOT to summarize the document for a human.
 Your job is to transform the document into the smallest possible context that allows another LLM to answer the user's goal accurately.
+Your target is to reduce the token count by 50-80% compared to the original.
 
 CRITICAL: The "optimizedText" field must contain ONLY the actual optimized document content. Never include planning notes, reasoning, strategy instructions, meta-commentary, or anything that is not part of the source document. The optimizedText is pure content — it will be used directly as LLM context.
 
+FOLLOW THE PROVIDED STRATEGY — it specifies what to preserve, what to remove, and the compression target.
+
 Instructions:
 1. Identify the information required to complete the user's goal.
-2. Remove information that does not help another LLM answer the user's goal.
+2. Aggressively remove information that does not help another LLM answer the user's goal.
 3. Do NOT preserve the original document structure, wording, page numbers, signatures, or formatting unless they are necessary.
 4. Convert long legal/technical language into concise factual statements while preserving meaning.
-5. Merge repeated concepts.
+5. Merge repeated concepts — state each fact once.
 6. Remove:
    - boilerplate legal language
    - procedural instructions
@@ -86,7 +89,9 @@ ${truncated}
 
 Produce the JSON object described in the system prompt now.`;
 
-  const raw = await callGemini(`${OPTIMIZER_SYSTEM_PROMPT}\n\n${userPrompt}`);
+  const raw = await callGemini(`${OPTIMIZER_SYSTEM_PROMPT}\n\n${userPrompt}`, {
+    temperature: 0.5,
+  });
 
   const fallback = {
     optimizedText: truncated,

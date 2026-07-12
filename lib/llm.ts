@@ -44,7 +44,15 @@ export async function discoverModels(): Promise<string[]> {
   return ranked.length > 0 ? [...ranked, ...rest] : available;
 }
 
-export async function callGemini(prompt: string): Promise<string> {
+export interface GeminiConfig {
+  temperature?: number;
+  maxOutputTokens?: number;
+}
+
+export async function callGemini(
+  prompt: string,
+  config?: GeminiConfig
+): Promise<string> {
   const apiKey = getGeminiApiKey();
 
   let modelsToTry: string[] = [];
@@ -70,8 +78,8 @@ export async function callGemini(prompt: string): Promise<string> {
       body: JSON.stringify({
         contents: [{ role: "user", parts: [{ text: prompt }] }],
         generationConfig: {
-          temperature: 0.2,
-          maxOutputTokens: 8192,
+          temperature: config?.temperature ?? 0.2,
+          maxOutputTokens: config?.maxOutputTokens ?? 8192,
         },
       }),
     });
