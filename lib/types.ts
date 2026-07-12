@@ -58,6 +58,7 @@ export interface OptimizeResponse {
     outputChars: number;
     rawLlmResponse: string;
     commitHash: string;
+    extractedTextLength: number;
   };
 }
 

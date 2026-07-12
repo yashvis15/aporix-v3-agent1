@@ -3,33 +3,46 @@ import type { OptimizationStrategy, QualityReport } from "@/lib/types";
 
 const MAX_INPUT_CHARS = Number(process.env.MAX_INPUT_CHARS || 60000);
 
-const OPTIMIZER_PROMPT = `You are an LLM context extractor. DELETE everything not needed for the user's goal. Keep ONLY essential facts.
+const OPTIMIZER_PROMPT = `You are a legal document extractor. Your job is to extract ONLY the specific facts needed for the user's goal. Discard everything else.
+
+Do NOT summarize. Do NOT rephrase the document. Do NOT preserve any original text structure. Extract only the raw relevant data points as short bullet points.
+
+For each piece of information, ask: "Is this specifically needed to answer the user's goal?" If the answer is not a clear YES — delete it.
+
+Extract ONLY:
+- Names of parties, entities, people
+- Dates and deadlines
+- Dollar amounts, payment terms, financial figures
+- Specific obligations (what each party MUST do)
+- Specific restrictions (what each party MUST NOT do)
+- Conditions and exceptions
+- Termination and renewal terms
+- Anything directly answering the user's goal
+
+DELETE EVERYTHING ELSE including:
+- Recitals, background sections, whereas clauses
+- Boilerplate legal language (governing law, venue, entire agreement, etc.)
+- Definitions (unless a term is critical to understanding an obligation)
+- Signature blocks, witness lines, notary sections
+- Section headings, numbering, formatting
+- Examples, explanations, procedural steps
+- Repeated or redundant statements
 
 RULES:
-- Convert content into short bullet-point facts.
-- DELETE: boilerplate, signatures, formatting, headers, procedural text, examples, definitions, repeated concepts, section references.
-- KEEP only: names, dates, numbers, amounts, obligations, rights, restrictions, deadlines, conditions, exceptions — but only if related to the goal.
-- Rewrite in your own concise words. Do not preserve original sentences.
-- No explanations, no meta-commentary in the output.
-
-CRITICAL: Your output MUST be less than 40% of the input length. If it's longer, you failed.
-
-EXAMPLE:
-Input: "This Employment Agreement (the 'Agreement') is entered into as of January 15, 2024, by and between Acme Corporation, a Delaware corporation with its principal place of business at 123 Main Street, Wilmington, DE 19801 (the 'Company'), and John Smith, an individual residing at 456 Oak Avenue, Springfield, IL 62701 (the 'Employee')."
-Output:
-- Party: Acme Corp (DE)
-- Employee: John Smith (Springfield, IL)
-- Date: Jan 15, 2024
+- Output MUST be < 40% of input length. Delete more if needed.
+- Use short bullet points with labels. No full sentences.
+- Do not copy original wording. Express facts concisely.
+- No explanations or commentary in the output.
 
 Respond with JSON only:
 {
-  "optimizedText": "bullet-point facts only",
+  "optimizedText": "bullet-point facts only — no prose, no explanation",
   "removedSummary": "what was deleted",
-  "preservedSummary": "what was kept",
+  "preservedSummary": "what was kept and why",
   "optimizationReasoning": "key decisions",
   "confidenceScore": 0.95,
   "semanticSimilarity": 0.92,
-  "removedSections": ["x", "y"]
+  "removedSections": ["recitals", "boilerplate", "definitions"]
 }`;
 
 export async function optimizeDocument(
@@ -48,10 +61,10 @@ export async function optimizeDocument(
 
   const userPrompt = `USER GOAL: ${goal}
 
-INPUT LENGTH: ~${inputChars} characters
-YOUR OUTPUT MUST BE UNDER ${targetMaxChars} CHARACTERS (${Math.round((1 - targetMaxChars / inputChars) * 100)}% reduction).
+INPUT LENGTH: ${inputChars} characters
+STRICT LIMIT: Your output MUST be under ${targetMaxChars} characters (${Math.round((1 - targetMaxChars / inputChars) * 100)}% reduction).
 
-DOCUMENT TEXT:
+DOCUMENT:
 """
 ${truncated}
 """`;
@@ -62,9 +75,9 @@ ${truncated}
 
   const fallback = {
     optimizedText: truncated,
-    removedSummary: "Optimization applied.",
+    removedSummary: "Extraction applied.",
     preservedSummary: "Content preserved based on goal relevance.",
-    optimizationReasoning: "Standard optimization applied.",
+    optimizationReasoning: "Standard extraction applied.",
     confidenceScore: 0.8,
     semanticSimilarity: 0.75,
     removedSections: [] as string[],

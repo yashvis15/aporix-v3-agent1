@@ -24,6 +24,7 @@ export async function runOptimizationAgent(
     outputChars: number;
     rawLlmResponse: string;
     commitHash: string;
+    extractedTextLength: number;
   };
 }> {
   const { extractedText, goal } = input;
@@ -77,7 +78,8 @@ export async function runOptimizationAgent(
     inputChars: extractedText.length,
     outputChars: optimization.optimizedText.length,
     rawLlmResponse: optimization.rawLlmResponse,
-    commitHash: "49e2574",
+    commitHash: "21add45",
+    extractedTextLength: extractedText.length,
   };
 
   return { result, debug };
