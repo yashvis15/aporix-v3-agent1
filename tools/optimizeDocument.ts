@@ -38,13 +38,25 @@ DOCUMENT:
 ${truncated}
 """`;
 
-  const { text: raw, model } = await callGemini(`${OPTIMIZER_PROMPT}\n\n${userPrompt}\n\nIMPORTANT: Your output MUST be at least 50% shorter than the input text above.`, {
-    temperature: 0.8,
-    maxOutputTokens: 16384,
-  });
+  async function callOnce(extra: string): Promise<{ text: string; model: string }> {
+    return callGemini(`${OPTIMIZER_PROMPT}\n\n${userPrompt}\n\n${extra}`, {
+      temperature: 0.8,
+      maxOutputTokens: 4096,
+    });
+  }
+
+  let { text: raw, model } = await callOnce("IMPORTANT: Your output MUST be at least 50% shorter than the input text above.");
 
   // Strip common preamble lines from the model response
-  const cleaned = raw.replace(/^(here|okay|sure|certainly|of course|i('ve| have) (read|analyzed|processed|reviewed)|the (extracted|optimized|compressed|relevant) (text|content|information|facts)|below (is|are)|based on|after (reviewing|analyzing)).*?\n+/im, "").trim();
+  let cleaned = raw.replace(/^(here|okay|sure|certainly|of course|i('ve| have) (read|analyzed|processed|reviewed)|the (extracted|optimized|compressed|relevant) (text|content|information|facts)|below (is|are)|based on|after (reviewing|analyzing)).*?\n+/im, "").trim();
+
+  // Retry once if model didn't compress (returned >=90% of input)
+  if (cleaned.length >= truncated.length * 0.9) {
+    const retry = await callOnce("CRITICAL: You MUST delete at least 60% of the text below. Keep only 2-3 sentences per relevant section. Output ONLY the kept text.");
+    raw = retry.text;
+    model = retry.model;
+    cleaned = raw.replace(/^(here|okay|sure|certainly|of course|i('ve| have) (read|analyzed|processed|reviewed)|the (extracted|optimized|compressed|relevant) (text|content|information|facts)|below (is|are)|based on|after (reviewing|analyzing)).*?\n+/im, "").trim();
+  }
 
   const outputText = cleaned.length < truncated.length * 0.9 ? cleaned : truncated;
 

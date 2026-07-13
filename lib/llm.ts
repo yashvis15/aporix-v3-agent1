@@ -59,53 +59,83 @@ export async function callGemini(
   config?: GeminiConfig
 ): Promise<GeminiResult> {
   const apiKey = getGeminiApiKey();
-
-  let modelsToTry: string[] = [];
   const userModel = process.env.GEMINI_MODEL?.replace(/^models\//, "").trim();
 
-  if (userModel) {
-    modelsToTry = [userModel];
-  } else {
-    modelsToTry = await discoverModels();
-    if (modelsToTry.length === 0) {
-      modelsToTry = ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash"];
-    }
-  }
+  // Try user-specified model first, then known working models, then discover
+  const modelsToTry: string[] = userModel
+    ? [userModel, "gemini-2.0-flash", "gemini-1.5-flash"]
+    : ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.0-flash-lite"];
 
   let lastError: string | null = null;
 
   for (const model of modelsToTry) {
-    const url = `${GEMINI_API_BASE}/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+    try {
+      const url = `${GEMINI_API_BASE}/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 45000);
 
-    const response = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: config?.temperature ?? 0.2,
-          maxOutputTokens: config?.maxOutputTokens ?? 8192,
-        },
-      }),
-    });
+      const response = await fetch(url, {
+        signal: controller.signal,
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: config?.temperature ?? 0.2,
+            maxOutputTokens: config?.maxOutputTokens ?? 4096,
+          },
+        }),
+      });
 
-    if (response.ok) {
-      const data = await response.json();
-      const text = data?.candidates?.[0]?.content?.parts
-        ?.map((part: { text?: string }) => part.text || "")
-        .join("")
-        .trim();
+      clearTimeout(timeout);
 
-      if (text) return { text, model };
+      if (response.ok) {
+        const data = await response.json();
+        const text = data?.candidates?.[0]?.content?.parts
+          ?.map((part: { text?: string }) => part.text || "")
+          .join("")
+          .trim();
+
+        if (text) return { text, model };
+      }
+
+      const data = await response.json().catch(() => null);
+      lastError = data?.error?.message || `Status ${response.status}`;
+    } catch (e) {
+      lastError = e instanceof Error ? e.message : "Unknown error";
     }
-
-    const data = await response.json().catch(() => null);
-    lastError = data?.error?.message || `Status ${response.status}`;
   }
+
+  // Fallback: try discoverModels() if all preferred failed
+  try {
+    const discovered = await discoverModels();
+    for (const model of discovered) {
+      if (modelsToTry.includes(model)) continue;
+      const url = `${GEMINI_API_BASE}/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: config?.temperature ?? 0.2,
+            maxOutputTokens: config?.maxOutputTokens ?? 4096,
+          },
+        }),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const text = data?.candidates?.[0]?.content?.parts
+          ?.map((part: { text?: string }) => part.text || "")
+          .join("")
+          .trim();
+        if (text) return { text, model };
+      }
+    }
+  } catch { /* ignore discovery failure */ }
 
   throw new Error(
     `All Gemini models failed. Last error: ${lastError}. ` +
-      `Tried: ${modelsToTry.join(", ")}. ` +
       `Set GEMINI_MODEL env var to a working model, or check your API key.`
   );
 }
