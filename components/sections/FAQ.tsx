@@ -23,7 +23,7 @@ const faqs = [
   },
   {
     q: "Can I use Telegram?",
-    a: "Yes! Aporix has a Telegram bot that lets you send documents and receive optimized context directly in chat. This is ideal for quick optimization tasks on the go.",
+    a: "Yes! Open <a href=\"https://t.me/aporix_bot\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"text-[#2563EB] underline\">t.me/aporix_bot</a>, send <code class=\"text-[#10B981]\">/start</code>, then upload a document and describe your goal (e.g. \"extract key risks\" or \"summarize this\"). The bot runs the full optimization loop and returns compressed output ready for any LLM.",
   },
   {
     q: "Is my data stored?",
@@ -74,9 +74,10 @@ export default function FAQ() {
                   openIndex === i ? "max-h-96" : "max-h-0"
                 }`}
               >
-                <p className="px-5 pb-4 text-xs leading-relaxed text-[#94A3B8]">
-                  {faq.a}
-                </p>
+                <p
+                  className="px-5 pb-4 text-xs leading-relaxed text-[#94A3B8]"
+                  dangerouslySetInnerHTML={{ __html: faq.a }}
+                />
               </div>
             </div>
           ))}

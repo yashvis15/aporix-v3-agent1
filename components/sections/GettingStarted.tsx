@@ -55,9 +55,14 @@ export default function GettingStarted() {
               <StepCard key={s.step} {...s} />
             ))}
           </div>
-          <div className="bg-[#1E293B] border border-[#334155] rounded-xl p-6">
+          <a
+            href="https://t.me/aporix_bot"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block bg-[#1E293B] border border-[#334155] rounded-xl p-6 hover:border-[#10B981]/40 transition-all duration-200 group"
+          >
             <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 rounded-xl bg-[#10B981]/10 border border-[#10B981]/20 flex items-center justify-center text-[#10B981]">
+              <div className="w-10 h-10 rounded-xl bg-[#10B981]/10 border border-[#10B981]/20 flex items-center justify-center text-[#10B981] group-hover:bg-[#10B981]/20 transition-colors">
                 <MessageCircle className="w-5 h-5" />
               </div>
               <div>
@@ -68,7 +73,10 @@ export default function GettingStarted() {
             {telegramSteps.map((s) => (
               <StepCard key={s.step} {...s} />
             ))}
-          </div>
+            <p className="mt-3 text-xs text-[#94A3B8] leading-relaxed">
+              Send <code className="text-[#10B981]">/start</code> to the bot, then upload a document and describe your goal (e.g. "extract key risks" or "summarize this"). The bot runs the full optimization loop and returns compressed output ready to paste into any LLM.
+            </p>
+          </a>
         </div>
       </div>
     </section>
