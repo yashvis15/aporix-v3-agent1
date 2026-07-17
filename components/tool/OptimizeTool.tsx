@@ -19,6 +19,7 @@ import {
   ShieldCheck,
   ChevronDown,
   Code2,
+  BookOpen,
   Menu,
   X,
   Sun,
@@ -27,7 +28,7 @@ import {
 import Button from "@/components/ui/Button";
 
 type ApiResult = OptimizeResponse | OptimizeErrorResponse;
-type TabId = "output" | "comparison" | "analysis";
+type TabId = "output" | "comparison" | "analysis" | "api";
 
 const GOAL_SUGGESTIONS = [
   "Summarize",
@@ -93,6 +94,17 @@ export default function OptimizeTool() {
       }
 
       setResult(data);
+
+      fetch("/api/metrics", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tokensSaved: data.tokenStats.tokensSaved ?? 0,
+          costSaved: data.costAnalysis?.savings ?? 0,
+          latencyReductionMs: data.latencyEstimate?.reductionMs ?? 0,
+          validated: (data.trustLayer?.confidenceScore ?? 0) > 0.7,
+        }),
+      }).catch(() => {});
     } catch (err) {
       setError(err instanceof Error ? err.message : "Network error.");
     } finally {
@@ -365,6 +377,7 @@ export default function OptimizeTool() {
                       { id: "output", label: "Optimized Text", icon: FileText },
                       { id: "comparison", label: "Comparison", icon: TrendingDown },
                       { id: "analysis", label: "Analysis", icon: Code2 },
+                      { id: "api", label: "API", icon: BookOpen },
                     ] as { id: TabId; label: string; icon: typeof FileText }[]
                   ).map((tab) => (
                     <button
@@ -400,6 +413,7 @@ export default function OptimizeTool() {
                 {activeTab === "analysis" && (
                   <AnalysisTab result={result} />
                 )}
+                {activeTab === "api" && <ApiTab />}
               </div>
             </div>
           )}
@@ -724,6 +738,166 @@ function BarRow({
       <span className="w-24 shrink-0 text-right text-xs font-medium text-[#F8FAFC]">
         {value.toLocaleString()}
       </span>
+    </div>
+  );
+}
+
+function ApiTab() {
+  const [sdkLang, setSdkLang] = useState<"curl" | "js" | "python">("curl");
+
+  const curlExample = `curl -X POST https://aporix.example.com/api/optimize \\
+  -H "Authorization: Bearer YOUR_API_KEY" \\
+  -F "file=@document.pdf" \\
+  -F "goal=extract key risks"`;
+
+  const jsExample = `import fs from 'fs';
+
+const formData = new FormData();
+formData.append('file', fs.readFileSync('document.pdf'));
+formData.append('goal', 'extract key risks');
+
+const res = await fetch('https://aporix.example.com/api/optimize', {
+  method: 'POST',
+  headers: { Authorization: 'Bearer YOUR_API_KEY' },
+  body: formData,
+});
+
+const data = await res.json();
+console.log(data.optimizedText);`;
+
+  const pythonExample = `import requests
+
+res = requests.post(
+    'https://aporix.example.com/api/optimize',
+    headers={'Authorization': 'Bearer YOUR_API_KEY'},
+    files={'file': open('document.pdf', 'rb')},
+    data={'goal': 'extract key risks'}
+)
+
+data = res.json()
+print(data['optimizedText'])`;
+
+  const examples = { curl: curlExample, js: jsExample, python: pythonExample };
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h4 className="mb-1 text-sm font-semibold text-[#F8FAFC]">API Reference</h4>
+        <p className="text-xs text-[#94A3B8]">
+          Integrate Aporix directly into your pipeline. The API accepts a file
+          and goal, returns optimized context with analytics.
+        </p>
+      </div>
+
+      <div className="rounded-xl border border-[#334155] bg-[#0F172A] px-4 py-3">
+        <p className="text-xs font-medium text-[#64748B]">Endpoint</p>
+        <p className="font-mono text-sm font-semibold text-[#F8FAFC]">
+          POST /api/optimize
+        </p>
+      </div>
+
+      <div>
+        <h5 className="mb-2 text-xs font-semibold text-[#94A3B8] uppercase tracking-wider">
+          Request body (multipart/form-data)
+        </h5>
+        <div className="overflow-x-auto rounded-xl border border-[#334155]">
+          <table className="min-w-full text-xs">
+            <thead>
+              <tr className="bg-[#0F172A]">
+                <th className="px-4 py-2 text-left font-medium text-[#94A3B8]">Field</th>
+                <th className="px-4 py-2 text-left font-medium text-[#94A3B8]">Type</th>
+                <th className="px-4 py-2 text-left font-medium text-[#94A3B8]">Description</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#334155]">
+              <tr>
+                <td className="px-4 py-2 font-mono text-[#F8FAFC]">file</td>
+                <td className="text-[#94A3B8]">File</td>
+                <td className="text-[#94A3B8]">PDF, TXT, JSON, or Markdown</td>
+              </tr>
+              <tr>
+                <td className="px-4 py-2 font-mono text-[#F8FAFC]">goal</td>
+                <td className="text-[#94A3B8]">string</td>
+                <td className="text-[#94A3B8]">Optimization goal/instruction</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div>
+        <div className="mb-2 flex items-center justify-between">
+          <h5 className="text-xs font-semibold text-[#94A3B8] uppercase tracking-wider">
+            SDK examples
+          </h5>
+          <div className="flex gap-1 rounded-lg border border-[#334155] p-0.5">
+            {(["curl", "js", "python"] as const).map((lang) => (
+              <button
+                key={lang}
+                onClick={() => setSdkLang(lang)}
+                className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                  sdkLang === lang
+                    ? "bg-[#2563EB] text-white"
+                    : "text-[#94A3B8] hover:text-[#F8FAFC]"
+                }`}
+              >
+                {lang === "curl" ? "cURL" : lang === "js" ? "JavaScript" : "Python"}
+              </button>
+            ))}
+          </div>
+        </div>
+        <pre className="overflow-x-auto rounded-xl border border-[#334155] bg-[#0F172A] p-4 text-xs leading-relaxed text-[#10B981] scrollbar-thin">
+          {examples[sdkLang]}
+        </pre>
+      </div>
+
+      <div>
+        <h5 className="mb-2 text-xs font-semibold text-[#94A3B8] uppercase tracking-wider">
+          Response schema (JSON)
+        </h5>
+        <pre className="overflow-x-auto rounded-xl border border-[#334155] bg-[#0F172A] p-4 text-xs leading-relaxed text-[#94A3B8] scrollbar-thin">
+{`{
+  "optimizedText": "string",
+  "tokenStats": {
+    "originalTokens": 15000,
+    "optimizedTokens": 3200,
+    "tokensSaved": 11800,
+    "percentSaved": 78.7
+  },
+  "costAnalysis": {
+    "model": "GPT-4o mini",
+    "originalCost": 0.0045,
+    "optimizedCost": 0.00096,
+    "savings": 0.00354
+  },
+  "latencyEstimate": {
+    "originalEstimatedLatencyMs": 15500,
+    "optimizedEstimatedLatencyMs": 4100,
+    "reductionMs": 11400,
+    "reductionPercent": 73.5
+  },
+  "trustLayer": {
+    "confidenceScore": 0.93,
+    "semanticSimilarity": 0.91,
+    "preservedSummary": "string",
+    "optimizationReasoning": "string",
+    "removedSections": ["..."]
+  },
+  "meta": {
+    "goal": "extract risks",
+    "fileName": "report.pdf",
+    "fileType": "pdf"
+  }
+}`}
+        </pre>
+      </div>
+
+      <div className="rounded-xl border border-dashed border-[#334155] p-4 text-center">
+        <p className="text-xs font-medium text-[#64748B]">
+          Coming soon: Official SDK packages, webhooks, batch processing, and
+          usage dashboards.
+        </p>
+      </div>
     </div>
   );
 }

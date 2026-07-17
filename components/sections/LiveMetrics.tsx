@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import {
   FileText,
   TrendingDown,
@@ -77,7 +78,62 @@ const metrics: MetricProps[] = [
   },
 ];
 
+async function fetchMetrics(): Promise<Record<string, string | number>> {
+  try {
+    const res = await fetch("/api/metrics");
+    return await res.json();
+  } catch {
+    return {};
+  }
+}
+
 export default function LiveMetrics() {
+  const [data, setData] = useState<Record<string, string | number> | null>(null);
+
+  useEffect(() => {
+    fetchMetrics().then(setData);
+    const interval = setInterval(() => fetchMetrics().then(setData), 10000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const live: MetricProps[] = [
+    {
+      icon: FileText,
+      label: "Documents Optimized",
+      value: data ? String(data.totalOptimizations ?? "—") : "—",
+      sub: "All time",
+      color: "#2563EB",
+    },
+    {
+      icon: TrendingDown,
+      label: "Average Token Reduction",
+      value: data ? `${data.avgTokenReduction ?? "—"}%` : "—",
+      sub: "Per document",
+      color: "#10B981",
+    },
+    {
+      icon: DollarSign,
+      label: "Estimated Cost Savings",
+      value: data ? String(data.totalCostSaved ?? "—") : "—",
+      sub: "Total saved",
+      color: "#10B981",
+    },
+    {
+      icon: Timer,
+      label: "Avg Latency Reduction",
+      value: data ? `${data.avgLatencyReduction ?? "—"}ms` : "—",
+      sub: "Per document",
+      color: "#2563EB",
+    },
+    {
+      icon: ShieldCheck,
+      label: "Quality Validation Rate",
+      value: data ? String(data.qualityRate ?? "—") : "—",
+      sub: "Confidence > 70%",
+      color: "#10B981",
+    },
+  ];
+
   return (
     <section className="py-20 md:py-28 border-t border-[#334155]/50">
       <div className="mx-auto max-w-page px-4 sm:px-6 lg:px-8">
@@ -87,7 +143,7 @@ export default function LiveMetrics() {
           description="Aggregate metrics across all document optimizations. Live data will appear as usage grows."
         />
         <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-          {metrics.map((m) => (
+          {live.map((m) => (
             <MetricCard key={m.label} {...m} />
           ))}
         </div>
