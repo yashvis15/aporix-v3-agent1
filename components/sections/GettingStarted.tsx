@@ -56,7 +56,7 @@ export default function GettingStarted() {
             ))}
           </div>
           <a
-            href="https://t.me/aporix_bot"
+            href="https://t.me/Aporix_optbot"
             target="_blank"
             rel="noopener noreferrer"
             className="block bg-[#1E293B] border border-[#334155] rounded-xl p-6 hover:border-[#10B981]/40 transition-all duration-200 group"

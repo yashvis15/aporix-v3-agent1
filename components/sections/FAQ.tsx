@@ -23,7 +23,7 @@ const faqs = [
   },
   {
     q: "Can I use Telegram?",
-    a: "Yes! Open <a href=\"https://t.me/aporix_bot\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"text-[#2563EB] underline\">t.me/aporix_bot</a>, send <code class=\"text-[#10B981]\">/start</code>, then upload a document and describe your goal (e.g. \"extract key risks\" or \"summarize this\"). The bot runs the full optimization loop and returns compressed output ready for any LLM.",
+    a: "Yes! Open <a href=\"https://t.me/Aporix_optbot\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"text-[#2563EB] underline\">t.me/Aporix_optbot</a>, send <code class=\"text-[#10B981]\">/start</code>, then upload a document and describe your goal (e.g. \"extract key risks\" or \"summarize this\"). The bot runs the full optimization loop and returns compressed output ready for any LLM.",
   },
   {
     q: "Is my data stored?",
