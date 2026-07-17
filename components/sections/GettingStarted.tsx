@@ -33,7 +33,7 @@ function StepCard({ icon: Icon, step, title, description }: typeof webSteps[0] &
 
 export default function GettingStarted() {
   return (
-    <section className="py-20 md:py-28 border-t border-[#334155]/50">
+    <section id="getting-started" className="py-20 md:py-28 border-t border-[#334155]/50">
       <div className="mx-auto max-w-page px-4 sm:px-6 lg:px-8">
         <SectionTitle
           label="Getting Started"

@@ -29,7 +29,7 @@ export default function FinalCTA() {
               size="lg"
               variant="secondary"
               onClick={() => {
-                const el = document.querySelector("#agent");
+                const el = document.querySelector("#getting-started");
                 if (el) el.scrollIntoView({ behavior: "smooth" });
               }}
             >
