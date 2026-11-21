@@ -132,3 +132,63 @@ wire in without a rewrite:
 Works out of the box on Vercel (it's a standard Next.js App Router project).
 Set `GEMINI_API_KEY` (and optional overrides) as environment variables in
 your Vercel project settings before deploying.
+
+## Testing
+
+This project uses [Playwright](https://playwright.dev/) for end-to-end (E2E) tests written in TypeScript. E2E tests exercise Aporix like a real user—uploading a document, entering an optimization goal, submitting the form, and verifying rendered results—so they validate the frontend, API route, and application workflow together.
+
+### What is tested
+
+The regular (mocked) suite covers core user workflows without making real Gemini API calls:
+
+- **Main optimization workflow** — upload a valid sample PDF in the optimization tool, enter a goal, submit, verify optimization completes, optimized context is displayed, token savings/quality metrics are shown, and the optimized output can be copied.
+- **PDF upload validation** — uploading an unsupported file type shows an appropriate error, and submission is prevented when no file is provided.
+- **User input validation** — submission is prevented when the optimization goal is missing or whitespace-only.
+- **Error handling** — simulated API failures show an understandable error message and the UI does not get stuck in a loading state.
+- **Results validation** — displayed results contain the expected fields (optimized text, removal summary, token/cost/latency/trust metrics) and values are consistent with the (mocked) API response.
+
+Mocked tests run the real app against a local mock Gemini server (`tests/mock-gemini-server.mjs`) configured in `playwright.config.ts`, so **no production API keys are required** and no paid API calls are made.
+
+An **optional, separate integration test** (`tests/e2e/real-ai.integration.spec.ts`) can exercise the real Gemini-backed pipeline. It is excluded from the regular suite and only runs when explicitly enabled with a real API key.
+
+### Install dependencies
+
+```bash
+npm install
+npx playwright install chromium
+```
+
+(On CI/Linux you may need system dependencies as well: `npx playwright install --with-deps chromium`.)
+
+### Run tests locally
+
+```bash
+# Run the regular mocked E2E suite (starts mock Gemini server and dev server automatically)
+npm run test:e2e
+
+# Interactive UI mode
+npm run test:e2e:ui
+
+# Headed (visible browser) mode
+npm run test:e2e:headed
+```
+
+To run the optional real-AI integration test (makes a real Gemini API call; may incur cost):
+
+```bash
+RUN_REAL_AI_TESTS=1 GEMINI_API_KEY=your-real-key npm run test:e2e:real
+```
+
+### View the Playwright HTML report
+
+After a test run:
+
+```bash
+npm run test:e2e:report
+```
+
+This serves the report from `playwright-report/`. On failures, Playwright captures screenshots and traces in `test-results/`.
+
+### GitHub Actions
+
+`.github/workflows/playwright.yml` runs the mocked Playwright suite on pushes and pull requests. It installs dependencies and Chromium, runs tests without production API keys, and uploads the HTML report and failure artifacts (`playwright-report/`, `test-results/`) for each run from the workflow summary on GitHub.
